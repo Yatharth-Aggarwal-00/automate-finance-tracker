@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -23,9 +24,11 @@ class Settings(BaseSettings):
     paper_fee_flat: Decimal = Decimal("0.00")  # flat ₹ per order, simulated estimate
 
     # Market data
-    market_data_provider: str = "csv"  # csv | upstox
+    market_data_provider: str = "csv"  # csv | yahoo | upstox
     market_data_dir: Path = BACKEND_DIR / "data" / "fixtures"
     csv_data_status: str = "SIMULATED"  # SIMULATED for generated fixtures, HISTORICAL for real EOD files
+    universe_file: Path = BACKEND_DIR / "data" / "universe" / "nse_large_caps.csv"
+    history_start: date = date(2015, 1, 1)
     upstox_access_token: str | None = None
 
     # AI insights (optional)
@@ -38,6 +41,11 @@ class Settings(BaseSettings):
     @classmethod
     def empty_to_none(cls, v):
         return v or None
+
+    @field_validator("market_data_dir", "universe_file", mode="after")
+    @classmethod
+    def relative_to_backend(cls, v: Path) -> Path:
+        return v if v.is_absolute() else BACKEND_DIR / v
 
     @property
     def llm_enabled(self) -> bool:

@@ -2,30 +2,39 @@
 
     python -m scripts.seed           # sync prices; create account + demo trades if none exists
     python -m scripts.seed --reset   # wipe paper account, orders and trades, then re-seed
+
+If the configured provider (e.g. Yahoo) is unreachable, existing prices are kept;
+with an empty database the bundled SIMULATED fixtures are loaded instead, so the
+app always starts.
 """
 
 import argparse
+from datetime import timedelta
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import SessionLocal
-from app.market import get_provider
+from app.market import fallback_provider, get_provider
+from app.market.base import MarketDataUnavailable
 from app.market.csv_provider import eod_timestamp
 from app.market.sync import sync_market_data
 from app.models import Account, Holding, Instrument, PaperOrder, PriceBar, Trade
-from app.services.trading import place_order
+from app.services.trading import OrderRejected, place_order
 
-# (trading days after the account opens, symbol, side, quantity)
+# (calendar days before the latest price, symbol, side, quantity). Chosen so the tax features
+# have something to show: lots older than 12 months, one ~11 months old that turns long-term
+# soon, and a long-term sale earlier in the current financial year.
 DEMO_TRADES = [
-    (1, "TCS", "BUY", 8),
-    (1, "INFY", "BUY", 15),
-    (6, "RELIANCE", "BUY", 10),
-    (41, "HDFCBANK", "BUY", 12),
-    (81, "INFY", "SELL", 5),
+    (420, "TCS", "BUY", 6),
+    (420, "INFY", "BUY", 12),
+    (345, "HDFCBANK", "BUY", 20),
+    (200, "RELIANCE", "BUY", 8),
+    (90, "INFY", "SELL", 4),
+    (30, "ICICIBANK", "BUY", 5),
 ]
-ACCOUNT_OPENS_DAYS_AGO = 120
+ACCOUNT_OPENS_DAYS_AGO = 430
 
 
 def reset_account(db: Session) -> None:
@@ -34,43 +43,77 @@ def reset_account(db: Session) -> None:
     db.commit()
 
 
+def load_market_data(db: Session, settings: Settings) -> str:
+    sources_before = set(db.scalars(select(Instrument.data_source).distinct()))
+    try:
+        provider = get_provider(settings)
+        msg = f"Synced {sync_market_data(db, provider)} price bars from {provider.source}"
+    except MarketDataUnavailable as e:
+        db.rollback()
+        if db.scalar(select(PriceBar.date).limit(1)) is not None:
+            return f"WARNING: {e}. Keeping the existing price data."
+        provider = fallback_provider(settings)
+        msg = f"WARNING: {e}. Loaded {sync_market_data(db, provider)} bars of bundled SIMULATED data instead"
+    if sources_before and sources_before != {provider.source} and db.scalar(select(Trade.id).limit(1)):
+        msg += (
+            f"\nWARNING: existing paper trades were priced on {', '.join(sorted(sources_before))} data, "
+            f"now {provider.source}. Run `python -m scripts.seed --reset` for a consistent portfolio."
+        )
+    return msg
+
+
 def seed(db: Session, settings: Settings, demo_trades: bool = True) -> str:
-    bars = sync_market_data(db, get_provider(settings))
+    synced = load_market_data(db, settings)
     if db.scalar(select(Account)) is not None:
-        return f"Synced {bars} price bars; account already exists"
+        return f"{synced}; account already exists"
 
     dates = list(db.scalars(select(PriceBar.date).distinct().order_by(PriceBar.date)))
     if not dates:
-        raise SystemExit("No price data loaded; check MARKET_DATA_DIR")
-    start = max(0, len(dates) - ACCOUNT_OPENS_DAYS_AGO)
+        raise SystemExit("No price data loaded; check MARKET_DATA_PROVIDER / MARKET_DATA_DIR")
+    latest = dates[-1]
+
+    def day(days_ago: int):
+        return max(latest - timedelta(days=days_ago), dates[0])
+
     db.add(
         Account(
             name="Demo paper account",
             initial_cash=settings.initial_cash,
             cash=settings.initial_cash,
-            created_at=eod_timestamp(dates[start]),
+            created_at=eod_timestamp(day(ACCOUNT_OPENS_DAYS_AGO)),
         )
     )
     db.commit()
     if not demo_trades:
-        return f"Synced {bars} price bars; created empty account"
+        return f"{synced}; created empty account"
 
-    for i, (offset, symbol, side, qty) in enumerate(DEMO_TRADES):
-        d = dates[min(start + offset, len(dates) - 1)]
-        close = db.scalar(
-            select(PriceBar.close).join(Instrument).where(Instrument.symbol == symbol, PriceBar.date == d)
-        )
-        place_order(
-            db,
-            settings,
-            symbol=symbol,
-            side=side,
-            quantity=qty,
-            idempotency_key=f"seed-demo-{i}",
-            fill=(close, d),
-            executed_at=eod_timestamp(d),
-        )
-    return f"Synced {bars} price bars; created account with {len(DEMO_TRADES)} demo trades"
+    placed = 0
+    for i, (days_ago, symbol, side, qty) in enumerate(DEMO_TRADES):
+        d = day(days_ago)
+        bar = db.execute(
+            select(PriceBar.close, PriceBar.date)
+            .join(Instrument)
+            .where(Instrument.symbol == symbol, PriceBar.date <= d)
+            .order_by(PriceBar.date.desc())
+            .limit(1)
+        ).first()
+        if bar is None:
+            continue  # symbol not in this provider's universe
+        try:
+            place_order(
+                db,
+                settings,
+                symbol=symbol,
+                side=side,
+                quantity=qty,
+                idempotency_key=f"seed-demo-{i}",
+                fill=(bar.close, bar.date),
+                executed_at=eod_timestamp(bar.date),
+            )
+            placed += 1
+        except OrderRejected:
+            continue  # e.g. prices made the demo too expensive for the starting cash
+    return f"{synced}; created account with {placed} demo trades"
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, useApi, type OrderPreview, type OrderResult, type Side, type Stock } from "@/lib/api";
 import { dateLong, inr, newIdempotencyKey } from "@/lib/format";
+import { DecisionCheck } from "./DecisionCheck";
 import { Button, PnL, SimulationTag } from "./ui";
 
 type Step = "edit" | "confirm" | "done";
@@ -95,7 +96,7 @@ export function TradeDialog({ request, onClose, onExecuted }: {
         role="dialog"
         aria-modal="true"
         aria-labelledby="trade-title"
-        className="w-full max-w-md rounded-t-2xl border border-line bg-surface p-5 shadow-xl sm:rounded-2xl"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-line bg-surface p-5 shadow-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-2">
@@ -170,6 +171,7 @@ export function TradeDialog({ request, onClose, onExecuted }: {
               latest available close ({dateLong(preview.price_date)}). No real order is sent anywhere.
             </p>
             <PreviewBox preview={preview} error={null} />
+            <DecisionCheck symbol={symbol} side={side} quantity={qty} />
             {submitError && <p role="alert" className="text-sm text-loss">{submitError}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setStep("edit")} disabled={submitting}>Back</Button>

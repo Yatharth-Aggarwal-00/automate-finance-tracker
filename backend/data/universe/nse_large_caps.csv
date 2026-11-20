@@ -1,0 +1,27 @@
+symbol,name,exchange,sector
+RELIANCE,Reliance Industries Ltd,NSE,Energy
+ONGC,Oil & Natural Gas Corporation Ltd,NSE,Energy
+NTPC,NTPC Ltd,NSE,Power
+POWERGRID,Power Grid Corporation of India Ltd,NSE,Power
+TCS,Tata Consultancy Services Ltd,NSE,Information Technology
+INFY,Infosys Ltd,NSE,Information Technology
+HCLTECH,HCL Technologies Ltd,NSE,Information Technology
+WIPRO,Wipro Ltd,NSE,Information Technology
+HDFCBANK,HDFC Bank Ltd,NSE,Financial Services
+ICICIBANK,ICICI Bank Ltd,NSE,Financial Services
+SBIN,State Bank of India,NSE,Financial Services
+KOTAKBANK,Kotak Mahindra Bank Ltd,NSE,Financial Services
+AXISBANK,Axis Bank Ltd,NSE,Financial Services
+BAJFINANCE,Bajaj Finance Ltd,NSE,Financial Services
+BHARTIARTL,Bharti Airtel Ltd,NSE,Telecommunication
+ITC,ITC Ltd,NSE,Fast Moving Consumer Goods
+HINDUNILVR,Hindustan Unilever Ltd,NSE,Fast Moving Consumer Goods
+NESTLEIND,Nestle India Ltd,NSE,Fast Moving Consumer Goods
+MARUTI,Maruti Suzuki India Ltd,NSE,Automobile
+M&M,Mahindra & Mahindra Ltd,NSE,Automobile
+SUNPHARMA,Sun Pharmaceutical Industries Ltd,NSE,Healthcare
+TITAN,Titan Company Ltd,NSE,Consumer Durables
+ASIANPAINT,Asian Paints Ltd,NSE,Consumer Durables
+LT,Larsen & Toubro Ltd,NSE,Construction
+ULTRACEMCO,UltraTech Cement Ltd,NSE,Construction Materials
+TATASTEEL,Tata Steel Ltd,NSE,Metals & Mining

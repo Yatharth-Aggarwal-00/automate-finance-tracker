@@ -21,7 +21,7 @@ from app.services.reports import PortfolioReport
 log = logging.getLogger(__name__)
 
 DISCLAIMER = (
-    "Informational only. Generated from simulated data and calculated metrics; "
+    "Informational only. Generated from end-of-day prices and calculated metrics; "
     "not a prediction, recommendation or personalised financial advice."
 )
 

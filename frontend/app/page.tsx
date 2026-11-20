@@ -4,21 +4,24 @@ import { useState } from "react";
 import { PortfolioChart } from "@/components/charts";
 import { HoldingsTable } from "@/components/HoldingsTable";
 import { InsightsPanel } from "@/components/InsightsPanel";
+import { TaxCard } from "@/components/TaxCard";
 import { TradeDialog, type TradeRequest } from "@/components/TradeDialog";
 import { Button, Card, DataBadge, Empty, ErrorState, Loading, PnL, StatCard } from "@/components/ui";
-import { useApi, type Insights, type Portfolio, type PortfolioPoint } from "@/lib/api";
+import { useApi, type Insights, type Portfolio, type PortfolioPoint, type TaxSummary } from "@/lib/api";
 import { inr } from "@/lib/format";
 
 export default function Dashboard() {
   const portfolio = useApi<Portfolio>("/api/portfolio");
   const history = useApi<PortfolioPoint[]>("/api/portfolio/history");
   const insights = useApi<Insights>("/api/insights");
+  const tax = useApi<TaxSummary>("/api/tax/summary");
   const [trade, setTrade] = useState<TradeRequest | null>(null);
 
   const refresh = () => {
     portfolio.reload();
     history.reload();
     insights.reload();
+    tax.reload();
   };
 
   const p = portfolio.data;
@@ -63,6 +66,8 @@ export default function Dashboard() {
             </Card>
             <InsightsPanel {...insights} />
           </div>
+
+          <TaxCard {...tax} />
 
           <Card title="Holdings" actions={<span className="text-xs text-muted">Add, change or remove holdings with paper trades</span>}>
             <HoldingsTable holdings={p.holdings} onTrade={setTrade} />

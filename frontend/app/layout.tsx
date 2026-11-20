@@ -13,8 +13,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en-IN">
       <body className="min-h-screen antialiased">
         <div className="bg-warn px-4 py-1.5 text-center text-xs font-semibold text-on-warn">
-          PAPER TRADING · SIMULATION — virtual money only. No real orders, no broker connection. Bundled market data is
-          simulated.
+          PAPER TRADING · SIMULATION — virtual money only. No real orders, no broker connection. Prices are end-of-day;
+          check the data label for their source.
         </div>
         <header className="border-b border-line bg-surface">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
         <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs text-muted">
-          Proof of concept. Figures are simulated and for demonstration only; nothing here is investment advice.
+          Proof of concept. The portfolio and trades are virtual; nothing here is investment advice.
         </footer>
       </body>
     </html>

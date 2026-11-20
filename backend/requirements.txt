@@ -8,3 +8,7 @@ pydantic-settings==2.15.0
 anthropic==1.13.0
 pytest==9.1.1
 httpx==0.28.1
+yfinance==1.7.0
+pandas==3.0.6
+numpy==2.5.4
+curl_cffi==0.17.0

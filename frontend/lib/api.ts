@@ -231,3 +231,91 @@ export function useApi<T>(path: string | null) {
   const reload = useCallback(() => setTick((t) => t + 1), []);
   return { data, error, loading, reload };
 }
+
+export interface RealizedPiece {
+  symbol: string;
+  buy_date: string;
+  sell_date: string;
+  quantity: number;
+  cost: number;
+  proceeds: number;
+  gain: number;
+  long_term: boolean;
+  long_term_from: string;
+}
+
+export interface TaxEstimate {
+  short_term_net: number;
+  long_term_net: number;
+  exemption_used: number;
+  exemption_remaining: number;
+  taxable_short_term: number;
+  taxable_long_term: number;
+  tax: number;
+}
+
+export interface SellCheck {
+  symbol: string;
+  quantity: number;
+  price: number;
+  proceeds: number;
+  sell_date: string;
+  fy: string;
+  pieces: RealizedPiece[];
+  gain: number;
+  tax: number;
+  fy_before: TaxEstimate;
+  fy_after: TaxEstimate;
+  options: { label: string; quantity: number; sell_date: string; tax: number; saving: number }[];
+  notes: string[];
+  disclaimer: string;
+}
+
+export interface BuyCheck {
+  symbol: string;
+  quantity: number;
+  amount: number;
+  history_years: number;
+  max_drawdown_pct: number | null;
+  max_drawdown_peak: string | null;
+  max_drawdown_trough: string | null;
+  max_drawdown_rupees: number | null;
+  worst_month_pct: number | null;
+  worst_month_start: string | null;
+  worst_month_rupees: number | null;
+  losing_year_pct: number | null;
+  volatility_1y: number | null;
+  position_pct_after: number;
+  sector: string;
+  sector_pct_after: number;
+  trades_30d: number;
+  charges_fy: number;
+  flags: { kind: "position" | "sector" | "activity" | "drawdown" | "tax"; level: "info" | "attention"; text: string }[];
+  disclaimer: string;
+}
+
+export interface OpenLot {
+  symbol: string;
+  buy_date: string;
+  quantity: number;
+  cost: number;
+  price: number;
+  market_value: number;
+  unrealized_gain: number;
+  long_term_from: string;
+  days_to_long_term: number;
+  extra_tax_if_sold_today: number;
+}
+
+export interface TaxSummary {
+  fy: string;
+  fy_end: string;
+  days_left_in_fy: number;
+  realized: RealizedPiece[];
+  estimate: TaxEstimate;
+  lots: OpenLot[];
+  harvestable_ltcg: number;
+  unrealized_long_term_gain: number;
+  rates: { stcg_pct: number; ltcg_pct: number; ltcg_exemption: number; cess_pct: number };
+  disclaimer: string;
+}

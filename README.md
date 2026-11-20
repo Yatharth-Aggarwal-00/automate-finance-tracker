@@ -1,19 +1,33 @@
 # AI Investment Intelligence — POC (Indian equities, paper trading)
 
-A small, runnable proof of concept: a portfolio tracker for Indian stocks with a stock explorer,
-technical indicators, **paper (simulated) trading**, and plain-English AI insights.
+A runnable proof of concept for Indian equity investors: a **decision check before every trade**,
+built on a portfolio tracker with real end-of-day prices and paper (simulated) trading.
 
-> **Simulation only.** Virtual money (₹1,00,000 starting cash). No broker connection, no live orders,
-> no real payments. The bundled market data is **simulated** (a seeded random walk), not real prices.
-> Nothing in the app is investment advice.
+> **The problem.** Retail investors mostly lose money through avoidable decisions at the moment they
+> trade: selling a winner a few weeks before it would have been taxed at 12.5% instead of 20%, buying
+> into a stock without knowing how far it has fallen before, piling into one sector, trading too often.
+> SEBI's studies of individual traders found loss-makers trade more often and that charges deepened
+> their losses. Broker apps make trading fast and earn per trade; nothing makes you pause.
+>
+> **What this does.** It shows facts and arithmetic, not predictions: the tax consequence of a sale
+> (FIFO lots, short- vs long-term, the ₹1.25 lakh exemption) and a cheaper timing if one exists, the
+> historical risk of a buy in rupees, your concentration after the trade, and a year-round tax &
+> timing view.
+
+> **Virtual money only.** ₹1,00,000 starting cash. No broker connection, no live orders, no real
+> payments. Nothing in the app is investment or tax advice.
 
 | Area | Status |
 |---|---|
 | Portfolio dashboard (value, cash, invested, realized/unrealized P&L, return, holdings, performance chart) | ✅ |
 | Stock explorer (latest/previous close, % change, history chart, SMA 20/50, RSI 14, volatility, data label + timestamp) | ✅ |
 | Paper trading (buy/sell, confirmation step, validation, charges estimate, idempotency, order + trade log) | ✅ |
+| **Decision check before a sell**: FIFO lots, short/long-term, estimated tax, "wait N days to save ₹X", loss-timing notes | ✅ |
+| **Decision check before a buy**: worst historical fall and worst month in rupees, share of losing years, concentration after the trade, trading frequency | ✅ |
+| **Tax & timing card**: FY realized gains, estimated tax, ₹1.25 lakh exemption used, lots turning long-term soon, tax-free gains still bookable | ✅ |
 | AI insights (deterministic rules; optional Claude summary of the same metrics) | ✅ |
 | Market-data provider interface + CSV/simulated provider | ✅ |
+| Real NSE end-of-day prices via Yahoo Finance (26 large caps, from 2015) | ✅ (unofficial; personal use) |
 | Upstox adapter | Placeholder only (see [Market data](#market-data)) |
 | Razorpay test payments | Deferred (out of scope for this milestone) |
 
@@ -153,6 +167,9 @@ Full interactive docs at `/docs`. All endpoints are JSON.
 | `POST /api/paper-trades` | Execute a paper order. Header `Idempotency-Key` (8–64 chars) recommended |
 | `GET /api/paper-trades` | All paper orders including rejected ones |
 | `GET /api/insights` | Rule-based insights (+ optional Claude summary), disclaimer, metrics used |
+| `POST /api/checks/sell` | Tax impact of selling `quantity` of `symbol` now (FIFO), cheaper timing options, notes |
+| `POST /api/checks/buy` | Historical risk, concentration after the buy, trading activity, flags |
+| `GET /api/tax/summary` | This FY's realized gains, estimated tax, exemption used, open lots with long-term dates |
 
 Errors use `{"detail": {"code": "INSUFFICIENT_CASH", "message": "…", "order_id": 12}}`
 (`400` rejected, `404` unknown symbol, `503` no price, `422` validation).
@@ -166,10 +183,34 @@ The `/api/payments/*` endpoints are not implemented (Razorpay deferred).
 
 ## Market data
 
-**Default: simulated.** `backend/data/fixtures/*.csv` hold 260 weekdays (to 23 Oct 2026) of
+Choose with `MARKET_DATA_PROVIDER` in `.env`, then restart the backend (or run `python -m scripts.seed`).
+The UI labels every price with its status, source and as-of timestamp.
+
+### `yahoo`: real NSE end-of-day prices (free, unofficial)
+
+- Loads daily OHLCV from `HISTORY_START` (default 2015-01-01) for the stocks in `UNIVERSE_FILE`
+  (default `backend/data/universe/nse_large_caps.csv`: 26 large caps across 12 sectors; add rows
+  `symbol,name,exchange,sector` to extend it). Labelled **HISTORICAL**, source `yahoo`.
+- Uses the [`yfinance`](https://pypi.org/project/yfinance/) library: no key or account, one batched
+  download per sync. Prices are split-adjusted closes as Yahoo reports them, not dividend-adjusted.
+  Only real trading days appear, so exchange holidays are handled.
+- Today's bar is ignored until 16:00 IST, so an in-progress session is never treated as a close.
+- **To refresh to the latest close:** restart the backend, or run
+  `docker compose exec backend python -m scripts.seed`.
+- **Unofficial:** yfinance reads Yahoo's public endpoints, has no SLA and is meant for research and
+  education. Use it for personal experiments, and switch to a licensed broker or data API before
+  building anything for other people.
+- If Yahoo is unreachable or rate-limits the sync, the backend keeps the prices it already has. With
+  an empty database it loads the simulated fixtures instead, so the app always starts.
+- Switching data sources replaces each stock's price history. Paper trades priced on the old source
+  no longer make sense, so the seed script warns you; run `python -m scripts.seed --reset`.
+
+### `csv`: simulated (default, offline)
+
+`backend/data/fixtures/*.csv` hold 260 weekdays (to 23 Oct 2026) of
 generated OHLCV for RELIANCE, TCS, INFY, HDFCBANK and ICICIBANK. They are produced by
 `python -m scripts.generate_fixtures` (seeded geometric Brownian motion). **They are not real prices**;
-the UI labels them “Simulated data” with the as-of timestamp everywhere prices appear.
+the UI labels them “Simulated data”. This is the default so the app and tests run without network access.
 
 **Using real end-of-day data you are licensed to use:** put `instruments.csv`
 (`symbol,name,exchange,sector`) and one `<SYMBOL>.csv` (`date,open,high,low,close,volume`) per symbol
@@ -200,6 +241,30 @@ Sources: [Upstox Python SDK on PyPI](https://pypi.org/project/upstox-python-sdk/
 [Upstox community: API Q&A](https://community.upstox.com/t/regarding-upstox-api/11249).
 
 ---
+
+## Decision checks & tax
+
+Shown in the confirm step of every paper order, and as the **Tax & timing** card on the dashboard.
+
+**Tax rules used** (listed, STT-paid equity; FY 2026-27, unchanged by Budget 2026 per published guides):
+short-term (held 12 months or less) 20%; long-term 12.5% on gains above ₹1.25 lakh per financial year;
+4% cess. Short-term losses offset short- and long-term gains, long-term losses only long-term gains.
+Holding period is counted conservatively (long-term from the day after the 1-year anniversary). Lots
+are matched first-in-first-out, as for demat holdings. Not modelled: surcharge, carried-forward losses,
+other income, grandfathering of pre-2018 purchases. Rates live in `backend/app/services/tax.py`;
+review them each Budget. **This is an estimate, not tax advice.**
+
+**Sell check:** the lots being sold, each lot's gain and term, the tax this sale adds to the FY, and:
+- *Wait option*, if every short-term lot in the sale turns long-term within 60 days: the tax if sold
+  on that date at the same price, and the saving.
+- *Long-term-only option*, if the sale mixes long- and short-term lots.
+- *Loss notes*: a short-term loss is more useful than a long-term one, so it says when a loss is about
+  to become long-term.
+
+**Buy check** (last 5 years of prices): largest peak-to-trough fall and the worst 1-month return,
+each also in rupees for this order's amount; % of 1-year holding periods that lost money; 1-year
+volatility; this stock's and its sector's share of the portfolio after the buy (flag above 20% / 40%);
+trades in the last 30 days (flag at 10+). Historical facts only: no prediction or recommendation.
 
 ## AI insights
 
@@ -235,7 +300,7 @@ Secrets live only in `.env` on the backend (never in the frontend bundle). `.env
 
 ## Tests
 
-47 tests (`docker compose exec backend pytest`):
+74 tests (`docker compose exec backend pytest`):
 
 - **P&L math** — fees, weighted average cost, partial/full sells, realized P&L, insufficient cash at
   the exact boundary, insufficient holdings, invalid quantity/side, `total = realized + unrealized`
@@ -247,12 +312,19 @@ Secrets live only in `.env` on the backend (never in the frontend bundle). `.env
   portfolio reconciliation → transactions → orders → portfolio history → insights; `422`/`404` cases.
 - **Insights** — rule triggers, determinism, LLM success/caching, connection error and refusal
   fallbacks, fallback parameter only for supported models (Anthropic client is mocked; no network).
+- **Tax & lots** — 12-month boundary and leap day, FY boundaries, 20%/12.5% rates with cess,
+  exemption, loss set-off rules, FIFO matching with exact proceeds split, ledger replay, risk maths.
+- **Decision checks (API)** — sell tax and "wait" saving, loss-timing notes, oversell rejection, buy
+  concentration flags, insufficient cash, tax summary (fixed "today" so results are deterministic).
+- **Market data** — Yahoo frame parsing (gaps, NaN volume, `M&M` ticker), dropping today's
+  in-progress bar, download failures, source switch replacing old bars, seed fallbacks (Yahoo is
+  mocked; no network).
 
 ## Known limitations
 
-- Simulated prices; fixtures end on 23 Oct 2026 and don't advance by themselves (regenerate with
-  `scripts.generate_fixtures --end YYYY-MM-DD`, then `scripts.seed`).
-- Trading days are weekdays only — no NSE holiday calendar.
+- Yahoo data is unofficial and end-of-day only; it refreshes only when the backend restarts or the seed
+  script runs (no scheduled job yet).
+- With `csv`, prices are simulated, end on 23 Oct 2026 and skip only weekends (no NSE holiday calendar).
 - Orders fill at the latest EOD close; no intraday prices, order types, slippage or market hours.
 - Charges are a single configurable estimate, not real brokerage/taxes.
 - Single implicit user/account; no authentication.

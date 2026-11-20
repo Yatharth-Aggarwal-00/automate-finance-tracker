@@ -14,6 +14,9 @@ const RANGES = [
   { label: "3M", days: 66 },
   { label: "6M", days: 132 },
   { label: "1Y", days: 260 },
+  { label: "3Y", days: 780 },
+  { label: "5Y", days: 1300 },
+  { label: "Max", days: 10000 },
 ];
 
 export default function StockDetail() {

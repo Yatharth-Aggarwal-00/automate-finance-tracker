@@ -63,7 +63,7 @@ def get_quote(symbol: str, db: Session = Depends(get_db)):
 @router.get("/{symbol}/history", response_model=HistoryOut, responses=NOT_FOUND, summary="Daily OHLCV candles with SMA/RSI")
 def get_history(
     symbol: str,
-    days: int = Query(180, ge=5, le=2000, description="Number of most recent trading days to return"),
+    days: int = Query(180, ge=5, le=10000, description="Number of most recent trading days to return"),
     db: Session = Depends(get_db),
 ):
     inst = get_instrument(db, symbol)

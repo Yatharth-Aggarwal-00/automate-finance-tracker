@@ -192,3 +192,125 @@ class InsightsOut(BaseModel):
     metrics: dict
     data_status: DataStatusStr
     as_of: datetime | None
+
+
+# ---- Decision checks & tax ----------------------------------------------------------------
+
+
+class CheckIn(BaseModel):
+    symbol: str = Field(pattern=r"^[A-Za-z0-9&\-]{1,32}$", examples=["TCS"])
+    quantity: int = Field(gt=0, le=100_000, description="Whole shares")
+
+    @field_validator("symbol", mode="before")
+    @classmethod
+    def upper(cls, v):
+        return v.strip().upper() if isinstance(v, str) else v
+
+
+class RealizedPieceOut(BaseModel):
+    symbol: str
+    buy_date: date
+    sell_date: date
+    quantity: int
+    cost: Money
+    proceeds: Money
+    gain: Money
+    long_term: bool
+    long_term_from: date
+
+
+class TaxEstimateOut(BaseModel):
+    short_term_net: Money
+    long_term_net: Money
+    exemption_used: Money
+    exemption_remaining: Money
+    taxable_short_term: Money
+    taxable_long_term: Money
+    tax: Money = Field(description="Estimated tax incl. 4% cess; surcharge ignored")
+
+
+class SellOptionOut(BaseModel):
+    label: str
+    quantity: int
+    sell_date: date
+    tax: Money
+    saving: Money
+
+
+class SellCheckOut(BaseModel):
+    symbol: str
+    quantity: int
+    price: Money
+    proceeds: Money
+    sell_date: date
+    fy: str
+    pieces: list[RealizedPieceOut] = Field(description="Lots sold, oldest first (FIFO)")
+    gain: Money
+    tax: Money = Field(description="Extra tax this sale adds to the financial year")
+    fy_before: TaxEstimateOut
+    fy_after: TaxEstimateOut
+    options: list[SellOptionOut]
+    notes: list[str]
+    disclaimer: str
+
+
+class FlagOut(BaseModel):
+    kind: Literal["position", "sector", "activity", "drawdown", "tax"]
+    level: Literal["info", "attention"]
+    text: str
+
+
+class BuyCheckOut(BaseModel):
+    symbol: str
+    quantity: int
+    amount: Money
+    history_years: float
+    max_drawdown_pct: float | None
+    max_drawdown_peak: date | None
+    max_drawdown_trough: date | None
+    max_drawdown_rupees: Money | None
+    worst_month_pct: float | None
+    worst_month_start: date | None
+    worst_month_rupees: Money | None
+    losing_year_pct: float | None = Field(description="% of 1-year holding periods in the window that lost money")
+    volatility_1y: float | None
+    position_pct_after: float
+    sector: str
+    sector_pct_after: float
+    trades_30d: int
+    charges_fy: Money
+    flags: list[FlagOut]
+    disclaimer: str
+
+
+class OpenLotOut(BaseModel):
+    symbol: str
+    buy_date: date
+    quantity: int
+    cost: Money
+    price: Money
+    market_value: Money
+    unrealized_gain: Money
+    long_term_from: date
+    days_to_long_term: int
+    extra_tax_if_sold_today: Money
+
+
+class TaxRatesOut(BaseModel):
+    stcg_pct: float
+    ltcg_pct: float
+    ltcg_exemption: Money
+    cess_pct: float
+
+
+class TaxSummaryOut(BaseModel):
+    fy: str
+    fy_end: date
+    days_left_in_fy: int
+    realized: list[RealizedPieceOut]
+    estimate: TaxEstimateOut
+    lots: list[OpenLotOut]
+    harvestable_ltcg: Money
+    unrealized_long_term_gain: Money
+    rates: TaxRatesOut
+    disclaimer: str

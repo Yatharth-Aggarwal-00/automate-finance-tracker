@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { Insights } from "@/lib/api";
-import { Card, ErrorState, Loading } from "./ui";
+import { Button, Card, ErrorState, Loading } from "./ui";
+
+const VISIBLE = 4;
 
 export function InsightsPanel({ data, error, loading, reload }: {
   data: Insights | null;
@@ -9,6 +12,17 @@ export function InsightsPanel({ data, error, loading, reload }: {
   loading: boolean;
   reload: () => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  // Overall performance first, then items that need attention, then the rest.
+  const ordered = data
+    ? [
+        ...data.insights.filter((i) => i.kind === "performance"),
+        ...data.insights.filter((i) => i.kind !== "performance" && i.severity === "attention"),
+        ...data.insights.filter((i) => i.kind !== "performance" && i.severity !== "attention"),
+      ]
+    : [];
+  const shown = showAll ? ordered : ordered.slice(0, VISIBLE);
+
   return (
     <Card
       title="AI insights"
@@ -27,7 +41,7 @@ export function InsightsPanel({ data, error, loading, reload }: {
           {data.summary && <p className="rounded-lg bg-surface-2 p-3 text-sm text-ink">{data.summary}</p>}
           {data.llm_error && <p className="text-xs text-muted">AI summary unavailable: {data.llm_error}</p>}
           <ul className="space-y-3">
-            {data.insights.map((i, idx) => (
+            {shown.map((i, idx) => (
               <li key={idx} className="text-sm">
                 <div className="flex items-center gap-1.5 font-medium text-ink">
                   {i.severity === "attention" && (
@@ -39,6 +53,11 @@ export function InsightsPanel({ data, error, loading, reload }: {
               </li>
             ))}
           </ul>
+          {ordered.length > VISIBLE && (
+            <Button variant="ghost" className="-ml-3" onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+              {showAll ? "Show fewer" : `Show ${ordered.length - VISIBLE} more`}
+            </Button>
+          )}
           <p className="border-t border-line pt-3 text-xs text-muted">{data.disclaimer}</p>
         </div>
       )}
