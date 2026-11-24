@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     market_data_provider: str = "csv"  # csv | yahoo | upstox
     market_data_dir: Path = BACKEND_DIR / "data" / "fixtures"
     csv_data_status: str = "SIMULATED"  # SIMULATED for generated fixtures, HISTORICAL for real EOD files
-    universe_file: Path = BACKEND_DIR / "data" / "universe" / "nse_large_caps.csv"
+    universe_file: Path = BACKEND_DIR / "data" / "universe" / "nifty100.csv"
     history_start: date = date(2015, 1, 1)
     upstox_access_token: str | None = None
 

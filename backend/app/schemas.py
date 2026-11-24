@@ -314,3 +314,116 @@ class TaxSummaryOut(BaseModel):
     unrealized_long_term_gain: Money
     rates: TaxRatesOut
     disclaimer: str
+
+
+# ---- Quant research engine ------------------------------------------------------------------
+
+
+class FactorStatsOut(BaseModel):
+    months: int
+    ic_mean: float | None = Field(description="Mean monthly rank IC (Spearman) with next-month returns")
+    ic_t: float | None = Field(description="t-statistic of the mean IC; |t| >= 2 is the usual bar")
+    hit_rate: float | None = Field(description="% of months with a positive IC")
+    spread_annual: float | None = Field(description="Top minus bottom bucket return, annualised %")
+    bucket_returns: list[float] = Field(description="Mean monthly % return per bucket, lowest factor values first")
+
+
+class FactorOut(BaseModel):
+    key: str
+    name: str
+    description: str
+    hypothesis: str
+    full: FactorStatsOut
+    train: FactorStatsOut
+    test: FactorStatsOut
+    verdict: str
+
+
+class FactorsOut(BaseModel):
+    universe_size: int
+    start: date
+    end: date
+    rebalances: int
+    test_start: date
+    benchmark: str | None
+    data_source: str
+    factors: list[FactorOut]
+    caveats: list[str]
+
+
+class BacktestIn(BaseModel):
+    weights: dict[str, float] = Field(examples=[{"mom_12_1": 1, "low_vol": 1}], min_length=1, max_length=10)
+    top_n: int = Field(15, ge=5, le=50)
+    cost_bps: float = Field(20, ge=0, le=200, description="Cost per side in basis points (20 = 0.20%)")
+
+    @field_validator("weights")
+    @classmethod
+    def positive(cls, v: dict[str, float]):
+        if any(not (0 < w <= 10) for w in v.values()):
+            raise ValueError("weights must be between 0 and 10")
+        return v
+
+
+class MetricsOut(BaseModel):
+    months: int
+    cagr: float | None
+    volatility: float | None
+    sharpe: float | None
+    max_drawdown: float | None
+    total_return: float | None
+
+
+class RelativeOut(BaseModel):
+    excess_cagr: float | None
+    beat_months_pct: float | None
+    information_ratio: float | None
+
+
+class PeriodOut(BaseModel):
+    strategy: MetricsOut
+    nifty: MetricsOut | None
+    equal_weight: MetricsOut
+    vs_nifty: RelativeOut | None
+    vs_equal_weight: RelativeOut
+    avg_turnover: float | None = Field(description="Average one-way monthly turnover, %")
+
+
+class CurvePointOut(BaseModel):
+    date: date
+    strategy: float
+    nifty: float | None
+    equal_weight: float
+
+
+class BacktestOut(BaseModel):
+    weights: dict[str, float]
+    top_n: int
+    cost_per_side_pct: float
+    risk_free_pct: float
+    test_start: date
+    full: PeriodOut
+    train: PeriodOut
+    test: PeriodOut
+    curve: list[CurvePointOut]
+    latest_holdings: list[str]
+    latest_date: date | None
+    caveats: list[str]
+
+
+class ScreenIn(BaseModel):
+    weights: dict[str, float] = Field(examples=[{"mom_12_1": 1, "low_vol": 1}], min_length=1, max_length=10)
+
+
+class ScreenRowOut(BaseModel):
+    rank: int
+    symbol: str
+    sector: str
+    score: float
+    percentiles: dict[str, float | None]
+
+
+class ScreenOut(BaseModel):
+    as_of: date
+    weights: dict[str, float]
+    rows: list[ScreenRowOut]
+    disclaimer: str

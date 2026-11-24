@@ -56,7 +56,7 @@ def _find_by_key(db: Session, key: str) -> PaperOrder | None:
 
 def preview_order(db: Session, settings: Settings, symbol: str, side: str, quantity: int) -> OrderPreview:
     """Price an order against the latest available close without writing anything."""
-    instrument = get_instrument(db, symbol)
+    instrument = get_instrument(db, symbol, tradable=True)
     lp = latest_price(db, instrument)
     account = get_account(db)
     holding = db.scalar(
@@ -88,7 +88,7 @@ def place_order(
     if idempotency_key and (existing := _find_by_key(db, idempotency_key)):
         return ExecutionResult(existing, existing.trade, replayed=True)
 
-    instrument = get_instrument(db, symbol)
+    instrument = get_instrument(db, symbol, tradable=True)
     if fill is None:
         lp = latest_price(db, instrument)
         fill = (lp.price, lp.price_date)

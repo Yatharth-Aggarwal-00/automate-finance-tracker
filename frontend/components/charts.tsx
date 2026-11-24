@@ -13,8 +13,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { Candle, PortfolioPoint } from "@/lib/api";
-import { dateLong, dateShort, inr, inrShort, num } from "@/lib/format";
+import type { Candle, EquityPoint, PortfolioPoint } from "@/lib/api";
+import { dateLong, dateShort, dateShortYear, inr, inrShort, num } from "@/lib/format";
 
 const AXIS = { stroke: "var(--axis)", tick: { fill: "var(--muted)", fontSize: 11 }, tickLine: false } as const;
 const GRID = { stroke: "var(--grid)", vertical: false } as const;
@@ -182,6 +182,52 @@ export function RsiChart({ candles }: { candles: Candle[] }) {
             activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} />
         </LineChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function EquityChart({ points, testStart }: { points: EquityPoint[]; testStart: string }) {
+  const hasNifty = points.some((p) => p.nifty != null);
+  return (
+    <div>
+      <div className="h-80 w-full">
+        <ResponsiveContainer>
+          <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid {...GRID} />
+            <XAxis dataKey="date" {...AXIS} tickFormatter={dateShortYear} minTickGap={48} />
+            <YAxis {...AXIS} axisLine={false} width={48} domain={["auto", "auto"]} tickFormatter={(v) => num(v, 0)} />
+            <ReferenceLine x={points.find((p) => p.date >= testStart)?.date} stroke="var(--axis)"
+              label={{ value: "Last 3 years →", position: "insideTopLeft", fill: "var(--muted)", fontSize: 11 }} />
+            <Tooltip content={<ChartTip format={(n) => n.toFixed(1)} />} cursor={CURSOR} />
+            <Legend verticalAlign="top" align="left" height={28} iconType="plainline" wrapperStyle={{ fontSize: 12, color: "var(--ink-2)" }} />
+            <Line isAnimationActive={false} type="monotone" dataKey="strategy" name="Strategy (after costs)" stroke="var(--series-1)" strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} />
+            <Line isAnimationActive={false} type="monotone" dataKey="equal_weight" name="Equal-weight universe" stroke="var(--series-2)" strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} />
+            {hasNifty && (
+              <Line isAnimationActive={false} type="monotone" dataKey="nifty" name="Nifty 50" stroke="var(--series-3)" strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} />
+            )}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <TableView caption="Growth of 100 for the strategy and benchmarks">
+        <thead className="bg-surface-2 text-ink-2">
+          <tr>
+            <th className="px-2 py-1">Month end</th>
+            <th className="px-2 py-1 text-right">Strategy</th>
+            <th className="px-2 py-1 text-right">Equal-weight</th>
+            <th className="px-2 py-1 text-right">Nifty 50</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...points].reverse().map((p) => (
+            <tr key={p.date} className="border-t border-line">
+              <td className="px-2 py-1">{dateLong(p.date)}</td>
+              <td className="px-2 py-1 text-right">{num(p.strategy, 1)}</td>
+              <td className="px-2 py-1 text-right">{num(p.equal_weight, 1)}</td>
+              <td className="px-2 py-1 text-right">{p.nifty == null ? "—" : num(p.nifty, 1)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </TableView>
     </div>
   );
 }

@@ -30,6 +30,8 @@ class Instrument(Base):
     name: Mapped[str] = mapped_column(String(128))
     exchange: Mapped[str] = mapped_column(String(16), default="NSE")
     sector: Mapped[str] = mapped_column(String(64))
+    # EQUITY is tradable; INDEX (e.g. Nifty 50) is a benchmark only.
+    kind: Mapped[str] = mapped_column(String(8), default="EQUITY", server_default="EQUITY")
     data_source: Mapped[str] = mapped_column(String(32))
     data_status: Mapped[str] = mapped_column(String(16))
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

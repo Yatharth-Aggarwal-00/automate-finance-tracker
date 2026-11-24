@@ -37,6 +37,7 @@ class InstrumentInfo:
     name: str
     exchange: str
     sector: str
+    kind: str = "EQUITY"  # EQUITY | INDEX
 
 
 @dataclass(frozen=True)

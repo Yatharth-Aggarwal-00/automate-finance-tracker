@@ -319,3 +319,88 @@ export interface TaxSummary {
   rates: { stcg_pct: number; ltcg_pct: number; ltcg_exemption: number; cess_pct: number };
   disclaimer: string;
 }
+
+export interface FactorStats {
+  months: number;
+  ic_mean: number | null;
+  ic_t: number | null;
+  hit_rate: number | null;
+  spread_annual: number | null;
+  bucket_returns: number[];
+}
+
+export interface FactorInfo {
+  key: string;
+  name: string;
+  description: string;
+  hypothesis: string;
+  full: FactorStats;
+  train: FactorStats;
+  test: FactorStats;
+  verdict: string;
+}
+
+export interface FactorsResponse {
+  universe_size: number;
+  start: string;
+  end: string;
+  rebalances: number;
+  test_start: string;
+  benchmark: string | null;
+  data_source: string;
+  factors: FactorInfo[];
+  caveats: string[];
+}
+
+export interface PerfMetrics {
+  months: number;
+  cagr: number | null;
+  volatility: number | null;
+  sharpe: number | null;
+  max_drawdown: number | null;
+  total_return: number | null;
+}
+
+export interface RelativeMetrics {
+  excess_cagr: number | null;
+  beat_months_pct: number | null;
+  information_ratio: number | null;
+}
+
+export interface PeriodResult {
+  strategy: PerfMetrics;
+  nifty: PerfMetrics | null;
+  equal_weight: PerfMetrics;
+  vs_nifty: RelativeMetrics | null;
+  vs_equal_weight: RelativeMetrics;
+  avg_turnover: number | null;
+}
+
+export interface EquityPoint {
+  date: string;
+  strategy: number;
+  nifty: number | null;
+  equal_weight: number;
+}
+
+export interface BacktestResponse {
+  weights: Record<string, number>;
+  top_n: number;
+  cost_per_side_pct: number;
+  risk_free_pct: number;
+  test_start: string;
+  full: PeriodResult;
+  train: PeriodResult;
+  test: PeriodResult;
+  curve: EquityPoint[];
+  latest_holdings: string[];
+  latest_date: string | null;
+  caveats: string[];
+}
+
+export interface ScreenResponse {
+  as_of: string;
+  weights: Record<string, number>;
+  rows: { rank: number; symbol: string; sector: string; score: number; percentiles: Record<string, number | null> }[];
+  disclaimer: string;
+}

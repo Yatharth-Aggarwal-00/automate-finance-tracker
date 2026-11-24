@@ -11,8 +11,9 @@ RUN pip install -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-HEALTHCHECK --interval=5s --timeout=3s --retries=20 \
+HEALTHCHECK --interval=5s --timeout=3s --retries=20 --start-period=600s \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"
 
-# Migrate, load/refresh market data + demo account (idempotent), then serve.
-CMD ["sh", "-c", "alembic upgrade head && python -m scripts.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Migrate; on an empty database load prices + demo account before serving. Otherwise serve the
+# stored prices immediately and refresh them from the provider in the background.
+CMD ["sh", "-c", "alembic upgrade head && python -m scripts.seed --if-empty && (python -m scripts.seed &) && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

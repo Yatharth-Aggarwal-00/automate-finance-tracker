@@ -27,7 +27,7 @@ def sync_market_data(db: Session, provider: MarketDataProvider) -> int:
             db.add(inst)
         elif inst.data_source != provider.source:
             db.execute(delete(PriceBar).where(PriceBar.instrument_id == inst.id))
-        inst.name, inst.exchange, inst.sector = info.name, info.exchange, info.sector
+        inst.name, inst.exchange, inst.sector, inst.kind = info.name, info.exchange, info.sector, info.kind
         inst.data_source, inst.data_status, inst.last_synced_at = provider.source, provider.status.value, now
         db.flush()
 

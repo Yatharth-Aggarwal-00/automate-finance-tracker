@@ -27,7 +27,8 @@ built on a portfolio tracker with real end-of-day prices and paper (simulated) t
 | **Tax & timing card**: FY realized gains, estimated tax, ₹1.25 lakh exemption used, lots turning long-term soon, tax-free gains still bookable | ✅ |
 | AI insights (deterministic rules; optional Claude summary of the same metrics) | ✅ |
 | Market-data provider interface + CSV/simulated provider | ✅ |
-| Real NSE end-of-day prices via Yahoo Finance (26 large caps, from 2015) | ✅ (unofficial; personal use) |
+| **Quant research engine**: 7 price factors, monthly IC research with an out-of-sample split, cost-aware top-N backtests vs Nifty 50 and the equal-weight universe, today's factor ranking | ✅ |
+| Real NSE end-of-day prices via Yahoo Finance (Nifty 100 + Nifty 50 index, from 2015) | ✅ (unofficial; personal use) |
 | Upstox adapter | Placeholder only (see [Market data](#market-data)) |
 | Razorpay test payments | Deferred (out of scope for this milestone) |
 
@@ -170,6 +171,9 @@ Full interactive docs at `/docs`. All endpoints are JSON.
 | `POST /api/checks/sell` | Tax impact of selling `quantity` of `symbol` now (FIFO), cheaper timing options, notes |
 | `POST /api/checks/buy` | Historical risk, concentration after the buy, trading activity, flags |
 | `GET /api/tax/summary` | This FY's realized gains, estimated tax, exemption used, open lots with long-term dates |
+| `GET /api/quant/factors` | Factor library with IC, t-stat, hit rate and quantile spreads, before vs. last 3 years, plus a verdict |
+| `POST /api/quant/backtest` | `{weights, top_n, cost_bps}` → metrics per period vs Nifty 50 and equal-weight universe, equity curve, latest holdings |
+| `POST /api/quant/screen` | `{weights}` → today's ranking by the factor mix, with per-factor percentiles |
 
 Errors use `{"detail": {"code": "INSUFFICIENT_CASH", "message": "…", "order_id": 12}}`
 (`400` rejected, `404` unknown symbol, `503` no price, `422` validation).
@@ -189,8 +193,12 @@ The UI labels every price with its status, source and as-of timestamp.
 ### `yahoo`: real NSE end-of-day prices (free, unofficial)
 
 - Loads daily OHLCV from `HISTORY_START` (default 2015-01-01) for the stocks in `UNIVERSE_FILE`
-  (default `backend/data/universe/nse_large_caps.csv`: 26 large caps across 12 sectors; add rows
-  `symbol,name,exchange,sector` to extend it). Labelled **HISTORICAL**, source `yahoo`.
+  (default `backend/data/universe/nifty100.csv`: the Nifty 100 constituents and NSE industries from
+  NSE Indices' published list, downloaded 24 Nov 2026; `nse_large_caps.csv` is a smaller 26-stock
+  alternative). The **Nifty 50 index** (`^NSEI`) is loaded as benchmark `NIFTY50`; it is not
+  tradable or listed among stocks. Labelled **HISTORICAL**, source `yahoo`.
+- On an empty database the backend loads prices before serving. After that it serves stored prices
+  immediately and refreshes from Yahoo in the background (a full refresh takes about 2 minutes).
 - Uses the [`yfinance`](https://pypi.org/project/yfinance/) library: no key or account, one batched
   download per sync. Prices are split-adjusted closes as Yahoo reports them, not dividend-adjusted.
   Only real trading days appear, so exchange holidays are handled.
@@ -241,6 +249,41 @@ Sources: [Upstox Python SDK on PyPI](https://pypi.org/project/upstox-python-sdk/
 [Upstox community: API Q&A](https://community.upstox.com/t/regarding-upstox-api/11249).
 
 ---
+
+## Quant research engine
+
+Page **Research** (`/research`); code in `backend/app/quant/` (pandas, no DB access outside `data.py`).
+
+**Question it answers:** which price signals actually predicted next-month returns of Indian large
+caps, and would a portfolio built on them have beaten simply holding the universe after costs?
+
+**Method.**
+1. *Universe:* today's Nifty 100, daily closes since 2015; benchmark Nifty 50 price index.
+2. *Factors* (`factors.py`), each computed on date t from prices up to t only (tested: changing
+   future prices never changes today's values): momentum 12-1 and 6-1, 1-month reversal, low
+   volatility, trend vs the 200-day average, distance from the 52-week high, low beta.
+3. *Research* (`research.py`): at every month-end, the Spearman rank correlation (IC) between each
+   factor and the next month's returns; mean IC, its t-statistic, % of positive months, and the
+   annualised top-minus-bottom quintile spread. The last 3 years are held out. Verdict "Held up out of
+   sample" needs t ≥ 2 before the holdout and the same sign during it.
+4. *Backtest* (`backtest.py`): each month-end, combine chosen factors (weighted cross-sectional rank
+   z-scores), hold the top N equal-weighted for a month, charge costs on turnover (default 0.20% per
+   side). Reports CAGR, volatility, Sharpe (6% risk-free), max drawdown, information ratio and months
+   beaten, for the whole period, the tuning period and the last 3 years, against the Nifty 50 and an
+   equal-weight portfolio of the universe.
+
+**What it found on the data so far** (Nov 2026; rerun to update): no factor reached t ≥ 2. Momentum
+12-1 came closest (t = 1.9 before the holdout) and turned slightly negative in the last 3 years. A
+momentum top-15 portfolio beat the equal-weight universe by about 8.5%/yr before the holdout and
+trailed it by about 3%/yr after, net of costs. The equal-weight universe itself "returned" about
+23%/yr against the Nifty's 12%: mostly survivorship bias, because today's index members are past
+winners. Hence the rule on the page: beat the equal-weight universe, not just the Nifty.
+
+**Known limitations:** survivorship bias (no historical constituent lists); price returns without
+dividends; month-end close fills; flat cost model; price factors only (value and quality need
+point-in-time fundamentals, which free sources don't provide); a single holdout split, not
+walk-forward. Rankings are research, not recommendations; publishing them to others would need SEBI
+Research Analyst registration.
 
 ## Decision checks & tax
 
@@ -300,7 +343,7 @@ Secrets live only in `.env` on the backend (never in the frontend bundle). `.env
 
 ## Tests
 
-74 tests (`docker compose exec backend pytest`):
+84 tests (`docker compose exec backend pytest`):
 
 - **P&L math** — fees, weighted average cost, partial/full sells, realized P&L, insufficient cash at
   the exact boundary, insufficient holdings, invalid quantity/side, `total = realized + unrealized`
@@ -316,6 +359,10 @@ Secrets live only in `.env` on the backend (never in the frontend bundle). `.env
   exemption, loss set-off rules, FIFO matching with exact proceeds split, ledger replay, risk maths.
 - **Decision checks (API)** — sell tax and "wait" saving, loss-timing notes, oversell rejection, buy
   concentration flags, insufficient cash, tax summary (fixed "today" so results are deterministic).
+- **Quant engine** — no look-ahead in any factor, momentum window arithmetic, beta recovered from a
+  known 2x series, month-end rebalance dates, an oracle factor scoring IC = 1 while noise scores ~0,
+  backtest cost and turnover accounting, metrics on known returns, API (factors, backtest, screen,
+  bad factor names, index not tradable, empty database).
 - **Market data** — Yahoo frame parsing (gaps, NaN volume, `M&M` ticker), dropping today's
   in-progress bar, download failures, source switch replacing old bars, seed fallbacks (Yahoo is
   mocked; no network).

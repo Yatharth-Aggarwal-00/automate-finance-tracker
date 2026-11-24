@@ -45,10 +45,12 @@ def normalize_symbol(symbol: str) -> str:
     return symbol.strip().upper()
 
 
-def get_instrument(db: Session, symbol: str) -> Instrument:
+def get_instrument(db: Session, symbol: str, tradable: bool = False) -> Instrument:
     inst = db.scalar(select(Instrument).where(Instrument.symbol == normalize_symbol(symbol)))
     if inst is None:
         raise UnknownSymbol(f"Unknown symbol: {symbol}")
+    if tradable and inst.kind != "EQUITY":
+        raise TradingError(f"{inst.symbol} is an index and can't be traded")
     return inst
 
 

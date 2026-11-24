@@ -22,6 +22,12 @@ export const dateShort = (iso: string) =>
     month: "short",
     timeZone: IST,
   });
+export const dateShortYear = (iso: string) =>
+  new Date(iso.length === 10 ? `${iso}T00:00:00+05:30` : iso).toLocaleDateString("en-IN", {
+    month: "short",
+    year: "2-digit",
+    timeZone: IST,
+  });
 export const dateLong = (iso: string) =>
   new Date(iso.length === 10 ? `${iso}T00:00:00+05:30` : iso).toLocaleDateString("en-IN", {
     day: "numeric",

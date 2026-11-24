@@ -38,7 +38,7 @@ def _stock_out(inst: Instrument, lp: LatestPrice | None) -> dict:
 
 @router.get("", response_model=list[StockOut], summary="List or search supported instruments")
 def list_stocks(q: str | None = Query(None, max_length=64, description="Filter by symbol or name"), db: Session = Depends(get_db)):
-    stmt = select(Instrument).order_by(Instrument.symbol)
+    stmt = select(Instrument).where(Instrument.kind == "EQUITY").order_by(Instrument.symbol)
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(Instrument.symbol.ilike(like), Instrument.name.ilike(like)))

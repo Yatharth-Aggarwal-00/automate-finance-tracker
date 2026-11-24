@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.routers import checks, health, insights, paper_trades, portfolio, stocks
+from app.routers import checks, health, insights, paper_trades, portfolio, quant, stocks
 from app.services.market import PriceUnavailable, UnknownSymbol
 from app.services.portfolio import TradingError
 from app.services.trading import OrderRejected
@@ -40,5 +40,5 @@ def trading_error(_: Request, exc: TradingError):
     return _error(status, exc.code, exc.message)
 
 
-for r in (health, stocks, portfolio, paper_trades, checks, insights):
+for r in (health, stocks, portfolio, paper_trades, checks, insights, quant):
     app.include_router(r.router)

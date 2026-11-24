@@ -120,8 +120,12 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--reset", action="store_true", help="delete the paper account and all orders/trades first")
     p.add_argument("--empty", action="store_true", help="create the account without demo trades")
+    p.add_argument("--if-empty", action="store_true", help="only run if the database has no prices yet")
     args = p.parse_args()
     with SessionLocal() as session:
+        if args.if_empty and session.scalar(select(PriceBar.date).limit(1)) is not None:
+            print("Price data present; serving it now and refreshing in the background")
+            raise SystemExit(0)
         if args.reset:
             reset_account(session)
         print(seed(session, get_settings(), demo_trades=not args.empty))

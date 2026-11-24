@@ -24,7 +24,14 @@ EOD_FINAL_AFTER = time(16, 0)
 PAISA = Decimal("0.01")
 
 
+# Benchmarks loaded alongside the universe: (symbol, name, Yahoo ticker).
+BENCHMARKS = [("NIFTY50", "Nifty 50 Index", "^NSEI")]
+_INDEX_TICKERS = {s: t for s, _, t in BENCHMARKS}
+
+
 def yahoo_ticker(symbol: str, exchange: str) -> str:
+    if symbol in _INDEX_TICKERS:
+        return _INDEX_TICKERS[symbol]
     return f"{symbol}.{'BO' if exchange == 'BSE' else 'NS'}"
 
 
@@ -47,6 +54,7 @@ class YahooProvider:
             raise MarketDataUnavailable(f"Universe file not found: {self.universe_file}")
         with self.universe_file.open(newline="", encoding="utf-8") as f:
             rows = [InstrumentInfo(r["symbol"], r["name"], r["exchange"], r["sector"]) for r in csv.DictReader(f)]
+        rows += [InstrumentInfo(s, n, "NSE", "Index", kind="INDEX") for s, n, _ in BENCHMARKS]
         return {r.symbol: r for r in rows}
 
     def list_instruments(self, query: str | None = None) -> list[InstrumentInfo]:
